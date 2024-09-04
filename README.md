@@ -12,6 +12,10 @@ https://github.com/samfisherirl/Unsilence_GUI/releases/download/v1/unsilencer.zi
 
 ![image](https://github.com/user-attachments/assets/1965b062-661c-4d8a-bba3-058f43eed9d1)
 
-https://github.com/user-attachments/assets/efeb0a8b-4bc5-4f10-86b6-c0bd87454dce
 
+ 
+
+
+
+https://github.com/user-attachments/assets/73b847b8-fbeb-42d8-8358-a46b3936cd84
 
