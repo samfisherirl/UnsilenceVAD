@@ -2,7 +2,7 @@
 
 Fast forward through silences in videos. forked from: https://github.com/lagmoellertim/unsilence
 
-Using fastforward instead of clipping prevents clipping and clicking in the video. 
+Using fastforward instead of clipping out segments prevents popping and clicks between transitions.
 
 # Download Link
 
