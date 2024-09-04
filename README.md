@@ -1,4 +1,4 @@
-# Unsilence  GUI for normies
+# Unsilence  GUI (for normies)
 
 Fast forward through silences in videos. forked from: https://github.com/lagmoellertim/unsilence
 
