@@ -78,7 +78,7 @@ class VideoProcessorApp(tk.Tk):
         silence_level = self.silence_level_entry.get()
         minimum_interval_duration = self.minimum_interval_duration_entry.get()
         output_path = f"{file_path.rsplit('.', 1)[0]}_nodeadair.{file_path.split('.')[-1]}"
-        command = f".\\_internal\\unsilenced.exe \"{file_path}\" \"{output_path}\" -ss {speed} -sv 1 -sl {silence_level} -mid {minimum_interval_duration} -y"
+        command = f".\\_internal\\unsilenced.exe \"{file_path}\" \"{output_path}\" -ss {speed} -sl {silence_level} -mid {minimum_interval_duration} -y"
 
         os.system(command)
         print(f"Processed {file_path} with speed {speed}, silence level {silence_level}, and minimum interval duration {minimum_interval_duration}. Output at {output_path}")
