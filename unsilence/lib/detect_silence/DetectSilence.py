@@ -14,6 +14,68 @@ import traceback
 from unsilence.lib.render_media.MediaRenderer import MediaRenderer
 import torchaudio
 
+import torch
+torch.set_num_threads(1)
+
+from IPython.display import Audio
+from pprint import pprint
+# download example
+USE_ONNX = True
+try:
+    from silero_vad import (load_silero_vad,
+                            read_audio,
+                            get_speech_timestamps,
+                            save_audio,
+                            VADIterator,
+                            collect_chunks)
+    model = load_silero_vad(onnx=USE_ONNX)
+except Exception as e:
+    print(str(e))
+    model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
+                                    model='silero_vad',
+                                    force_reload=True,
+                                        onnx=USE_ONNX)
+
+    (get_speech_timestamps,
+    save_audio,
+    read_audio,
+    VADIterator,
+    collect_chunks) = utils
+
+
+def detect_silence_vad(input_file, media_duration=0):
+    """
+    from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
+    model = load_silero_vad()
+    wav = read_audio('path_to_audio_file') # backend (sox, soundfile, or ffmpeg) required!
+    speech_timestamps = get_speech_timestamps(wav, model)
+    """
+    global model, enumerator_value
+    temp = Path.cwd() / f'temp{enumerator_value}.wav'
+    try:
+        os.remove(temp)
+    except:
+        pass
+    enumerator_value += 1
+    tmp = str(input_file)
+    if '.mp4' in tmp or '.mov' in tmp or '.mpg' in tmp or '.avi' in tmp:
+        convert_video_to_audio(input_file, temp)
+    elif ".wav" in tmp:
+        shutil.copy(input_file, temp)
+    # model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad', model='silero_vad')
+    # (get_speech_timestamps, _, read_audio, _, _) = utils
+    # this assumes that you have a relevant version of PyTorch installed
+
+    SAMPLING_RATE = 16000
+
+    wav, sample_rate = load_audio(temp)
+    speech_timestamps = get_speech_timestamps(wav, model)
+    try:
+        os.remove(temp)
+    except Exception as e:
+        print(str('error erasing wav file'))
+    return convert_intervals(speech_timestamps, sample_rate)
+    
 def detect_silence(input_file: Path, **kwargs):
     """
     Detects silence in a file and outputs the intervals (silent/not silent) as a lib.Intervals.Intervals object
@@ -55,8 +117,10 @@ def detect_silence(input_file: Path, **kwargs):
 
     return intervals
 
+enumerator_value = 0 
 
 def convert_video_to_audio(video_file, audio_output):
+    global enumerator_value
     cmd = [
         "ffmpeg",
         '-y',
@@ -94,9 +158,9 @@ def convert_intervals(speech_timestamps, sample_rate, media_duration=0):
     current_interval = Interval(start=0, end=0, is_silent=True)  # Start assuming initial silence
 
     for ts in speech_timestamps:
-        start_sec = ts['start'] / sample_rate
-        end_sec = ts['end'] / sample_rate
-
+        start_sec = round(ts['start'] / sample_rate, 2)
+        end_sec = round(ts['end'] / sample_rate, 2)
+        
         # Handle the transition to the speech interval
         if current_interval.start != start_sec:
             current_interval.end = start_sec
@@ -110,7 +174,8 @@ def convert_intervals(speech_timestamps, sample_rate, media_duration=0):
 
     # Handle any trailing silence after the last spee
     # Determine media duration from the last timestamp
-    media_duration = speech_timestamps[-1]['end'] / sample_rate
+    if len(speech_timestamps) > 0:
+        media_duration = speech_timestamps[len(speech_timestamps)-1]['end'] / sample_rate
 
     # Handle any trailing silence after the last speech interval
     current_interval.end = media_duration
@@ -121,61 +186,6 @@ def convert_intervals(speech_timestamps, sample_rate, media_duration=0):
 
 
 
-
-def detect_silence_vad(input_file, media_duration=0):
-    """
-    from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
-    model = load_silero_vad()
-    wav = read_audio('path_to_audio_file') # backend (sox, soundfile, or ffmpeg) required!
-    speech_timestamps = get_speech_timestamps(wav, model)
-    """
-    try:
-        os.remove('temp.wav')
-    except:
-        pass
-    tmp = str(input_file)
-    if '.mp4' in tmp or '.mov' in tmp or '.mpg' in tmp or '.avi' in tmp:
-        convert_video_to_audio(input_file, 'temp.wav')
-    elif ".wav" in tmp:
-        shutil.copy(input_file, 'temp.wav')
-    # model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad', model='silero_vad')
-    # (get_speech_timestamps, _, read_audio, _, _) = utils
-    # this assumes that you have a relevant version of PyTorch installed
-
-    SAMPLING_RATE = 16000
-
-    import torch
-    torch.set_num_threads(1)
-
-    from IPython.display import Audio
-    from pprint import pprint
-    # download example
-    USE_ONNX = True
-    try:
-        from silero_vad import (load_silero_vad,
-                                read_audio,
-                                get_speech_timestamps,
-                                save_audio,
-                                VADIterator,
-                                collect_chunks)
-        model = load_silero_vad(onnx=USE_ONNX)
-    except Exception as e:
-        print(str(e))
-        model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
-                                        model='silero_vad',
-                                        force_reload=True,
-                                            onnx=USE_ONNX)
-
-        (get_speech_timestamps,
-        save_audio,
-        read_audio,
-        VADIterator,
-        collect_chunks) = utils
-    wav, sample_rate = load_audio('temp.wav')
-    speech_timestamps = get_speech_timestamps(wav, model)
-
-    os.remove('temp.wav')
-    return convert_intervals(speech_timestamps, sample_rate)
 
 if __name__ == "__main__":
     inputfile = r"C:\Users\dower\Videos\Chilli16401-17461.mp4"
