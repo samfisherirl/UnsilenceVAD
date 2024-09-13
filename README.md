@@ -1,6 +1,8 @@
-# Unsilence  GUI (for normies)
+# UnsilenceVAD
 
-Fast forward through silences in videos. forked from: https://github.com/lagmoellertim/unsilence
+Fast forward through non speaking segments of videos. 
+
+The issue with most Unsilencers is they rely on sound volume not speach detection. VAD filters solve for this. 
 
 Using fastforward instead of clipping out segments prevents popping and clicks between transitions.
 
