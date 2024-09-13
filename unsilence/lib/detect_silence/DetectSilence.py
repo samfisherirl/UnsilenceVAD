@@ -19,28 +19,43 @@ torch.set_num_threads(1)
 
 from IPython.display import Audio
 from pprint import pprint
+
+
+def printer(string):
+    print(f'\n\n##################\n{string}\n##################\n\n')
+
 # download example
 USE_ONNX = True
 try:
-    from silero_vad import (load_silero_vad,
-                            read_audio,
-                            get_speech_timestamps,
-                            save_audio,
-                            VADIterator,
-                            collect_chunks)
-    model = load_silero_vad(onnx=USE_ONNX)
-except Exception as e:
-    print(str(e))
     model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
-                                    model='silero_vad',
-                                    force_reload=True,
-                                        onnx=USE_ONNX)
+                                  model='silero_vad',
+                                  force_reload=True,
+                                  onnx=USE_ONNX)
 
     (get_speech_timestamps,
-    save_audio,
-    read_audio,
-    VADIterator,
-    collect_chunks) = utils
+     save_audio,
+     read_audio,
+     VADIterator,
+     collect_chunks) = utils
+except Exception as e:
+    try:
+        printer('unable to load onnx gpu model')
+        from silero_vad import (load_silero_vad,
+                                read_audio,
+                                get_speech_timestamps,
+                                save_audio,
+                                VADIterator,
+                                collect_chunks)
+        model = load_silero_vad(onnx=USE_ONNX)
+    except Exception as e:
+        printer('unable to load onnx cpu model #2')
+        from silero_vad import (load_silero_vad,
+                                read_audio,
+                                get_speech_timestamps,
+                                save_audio,
+                                VADIterator,
+                                collect_chunks)
+        model = load_silero_vad(onnx=False)
 
 
 def detect_silence_vad(input_file, media_duration=0):
