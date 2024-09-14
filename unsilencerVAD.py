@@ -197,7 +197,11 @@ class VideoProcessorApp(tk.Tk):
         silence_level = self.silence_level_entry.get()
         minimum_interval_duration = self.minimum_interval_duration_entry.get()
         output_path = f"{file_path.rsplit('.', 1)[0]}_nodeadair.{file_path.split('.')[-1]}"
-        handle_unsilence(file_path, speed, silence_level, output_path)
+        command = f"cd unsilence\n\nunsilence \"{file_path}\" \"{output_path}\" -ss {speed} -sv 1 -sl {silence_level} -mid {minimum_interval_duration} -y\n\n"
+        with open('command.bat', 'w') as f:
+            f.write(command)
+        subprocess.run('cmd /c command.bat', text=True)
+        # handle_unsilence(file_path, speed, silence_level, output_path)
         printer('done')
 
 
