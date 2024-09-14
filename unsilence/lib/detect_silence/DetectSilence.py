@@ -173,8 +173,8 @@ def convert_intervals(speech_timestamps, sample_rate, media_duration=0):
     current_interval = Interval(start=0, end=0, is_silent=True)  # Start assuming initial silence
 
     for ts in speech_timestamps:
-        start_sec = round(ts['start'] / sample_rate, 2)
-        end_sec = round(ts['end'] / sample_rate, 2)
+        start_sec = round((ts['start'] / sample_rate), 3)
+        end_sec = round((ts['end'] / sample_rate), 3)
         
         # Handle the transition to the speech interval
         if current_interval.start != start_sec:
