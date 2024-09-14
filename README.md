@@ -6,6 +6,8 @@ The issue with most Unsilencers is they rely on sound volume not speach detectio
 
 Using fastforward instead of clipping out segments prevents popping and clicks between transitions.
 
+**Silero VAD** - pre-trained enterprise-grade [Voice Activity Detector](https://en.wikipedia.org/wiki/Voice_activity_detection) (also see our [STT models](https://github.com/snakers4/silero-models)).
+
 # Download Link
 
 https://github.com/samfisherirl/Unsilence_GUI/releases/download/v1/unsilencer.zip
