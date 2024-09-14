@@ -1,6 +1,6 @@
 # UnsilenceVAD
 
-Fast forward through non speaking segments of videos. 
+Fast forward through non speaking segments of videos with voice activity detection instead of volume detection. 
 
 The issue with most Unsilencers is they rely on sound volume not speach detection. VAD filters solve for this. 
 
