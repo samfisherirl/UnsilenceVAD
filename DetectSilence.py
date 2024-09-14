@@ -1,18 +1,16 @@
-import trace
 import numpy as np
 import torch
 from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
-import re
 import subprocess
 from pathlib import Path
-import json
 from unsilence.lib.intervals.Intervals import Intervals, Interval
 import os
 import shutil
 import soundfile as sf
 import traceback
 from unsilence.lib.render_media.MediaRenderer import MediaRenderer
-import torchaudio
+import site
+ 
 
 import torch
 torch.set_num_threads(1)
@@ -27,26 +25,19 @@ def printer(string):
 # download example
 USE_ONNX = True
 try:
-    model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
-                                  model='silero_vad',
-                                  force_reload=True,
-                                  onnx=USE_ONNX)
-
-    (get_speech_timestamps,
-     save_audio,
-     read_audio,
-     VADIterator,
-     collect_chunks) = utils
+  from silero_vad import (load_silero_vad,
+                          read_audio,
+                          get_speech_timestamps,
+                          save_audio,
+                          VADIterator,
+                          collect_chunks)
+  model = load_silero_vad(onnx=USE_ONNX)
 except Exception as e:
     try:
-        printer('unable to load onnx gpu model')
-        from silero_vad import (load_silero_vad,
-                                read_audio,
-                                get_speech_timestamps,
-                                save_audio,
-                                VADIterator,
-                                collect_chunks)
-        model = load_silero_vad(onnx=USE_ONNX)
+        model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
+                                      model='silero_vad',
+                                      force_reload=True,
+                                      onnx=USE_ONNX)
     except Exception as e:
         printer('unable to load onnx cpu model #2')
         from silero_vad import (load_silero_vad,
@@ -59,12 +50,6 @@ except Exception as e:
 
 
 def detect_silence_vad(input_file, media_duration=0):
-    """
-    from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
-    model = load_silero_vad()
-    wav = read_audio('path_to_audio_file') # backend (sox, soundfile, or ffmpeg) required!
-    speech_timestamps = get_speech_timestamps(wav, model)
-    """
     global model, enumerator_value
     temp = Path.cwd() / f'temp{enumerator_value}.wav'
     try:
@@ -92,20 +77,6 @@ def detect_silence_vad(input_file, media_duration=0):
     return convert_intervals(speech_timestamps, sample_rate)
     
 def detect_silence(input_file: Path, **kwargs):
-    """
-    Detects silence in a file and outputs the intervals (silent/not silent) as a lib.Intervals.Intervals object
-    :param input_file: File where silence should be detected
-    :param kwargs: Various Parameters, see below
-    :return: lib.Intervals.Intervals object
-
-    kwargs:
-        silence_level: Threshold of what should be classified as silent/audible (default -35) (in dB)
-        silence_time_threshold: Resolution of the ffmpeg detection algorithm (default 0.5) (in seconds)
-        short_interval_threshold : The shortest allowed interval length (default: 0.3) (in seconds)
-        stretch_time: Time the interval should be enlarged/shrunken (default 0.25) (in seconds)
-        on_silence_detect_progress_update: Function that should be called on progress update
-            (called like: func(current, total))
-    """
     input_file = Path(input_file).absolute()
     # if input_file:
     #     return detect_silence_vad(input_file)
@@ -158,17 +129,6 @@ def load_audio(file_path):
     return data, 16000  # Return tensor and new samplerate
 
 def convert_intervals(speech_timestamps, sample_rate, media_duration=0):
-    """
-    Converts speech timestamps into intervals of silence and speech, matching the logic used for handling VAD outputs.
-
-    Arguments:
-    - speech_timestamps: A list of dictionaries, each with 'start' and 'end' keys, representing sample indices in the audio.
-    - sample_rate: The sample rate of the audio data, used to convert indices to seconds.
-    - media_duration: Total duration of the media in seconds.
-
-    Returns:
-    - An Intervals object with integrated speech and non-speech intervals.
-    """
     intervals = Intervals()
     current_interval = Interval(start=0, end=0, is_silent=True)  # Start assuming initial silence
 
@@ -209,3 +169,4 @@ if __name__ == "__main__":
     obj = MediaRenderer('\\temp\\')
     output_file = inputfile.replace('.mp4', '_unsilenced.mp4')
     obj.render(inputfile, output_file, intervals)
+
