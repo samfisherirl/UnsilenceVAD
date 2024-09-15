@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 SPLIT_DISTANCE = 180  # 30 minutes
 
+
 def get_video_length(video_path):
     cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{video_path}\""
     result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
@@ -70,7 +71,8 @@ def handle_unsilence(file_path, speed, silence_level, output_path):
         printer('rendering media done')
     except Exception as e:
         traceback.format_exception(e)
-        
+
+
 def process_videos(video_params_list, max_threads):
     """
     Process multiple videos using handle_unsilence function with threading.
@@ -90,7 +92,6 @@ def process_videos(video_params_list, max_threads):
             future.result()  # This will re-raise any exceptions caught during the threading execution
 
 
-
 def combine_videos(video_paths, output_path):
     # Create a file containing all video file paths to concatenate
     with open("filelist.txt", "w") as file:
@@ -107,8 +108,10 @@ def ensure_env_file_exists():
     if not os.path.exists(env_path):
         open(env_path, 'a').close()  # Create the .env file if it does not exist
 
+
 def printer(string):
     print(f'\n\n##################\n{string}\n##################\n\n')
+
 
 class VideoProcessorApp(tk.Tk):
     def __init__(self):
@@ -159,13 +162,12 @@ class VideoProcessorApp(tk.Tk):
         self.title("Video Processor")
         self.geometry("600x300")
         load_dotenv()  # Load environment variables
-        self.modify_packages()
 
     def browse_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Video files", "*.*")])
         self.file_path_entry.delete(0, tk.END)
         self.file_path_entry.insert(0, file_path)
-        
+
     def splitter(self, path):
         length = get_video_length(path)
         if length > SPLIT_DISTANCE:
@@ -182,7 +184,6 @@ class VideoProcessorApp(tk.Tk):
             print('not long enough to split')
             handle_unsilence(path, self.speed_entry.get(), self.silence_level_entry.get(), path.replace('.mp4', '_output.mp4'))
 
-
     def process_video(self):
         # Save the current environment states when the processing starts
         set_key(".env", "SPEED", self.speed_entry.get())
@@ -196,13 +197,12 @@ class VideoProcessorApp(tk.Tk):
         silence_level = self.silence_level_entry.get()
         minimum_interval_duration = self.minimum_interval_duration_entry.get()
         output_path = f"{file_path.rsplit('.', 1)[0]}_nodeadair.{file_path.split('.')[-1]}"
-        command = f"CALL venv\\Scripts\\activate\ncd unsilence\n\nunsilence \"{file_path}\" \"{output_path}\" -ss {speed} -sv 0.5 -sl {silence_level} -mid {minimum_interval_duration} -y\n\n"
+        command = f"CALL venv\\Scripts\\activate\ncd venv\\Lib\\site-packages\\unsilence\\command_line\n\nCALL unsilence \"{file_path}\" \"{output_path}\" -ss {speed} -sv 0.5 -sl {silence_level} -mid {minimum_interval_duration} -y\n\n"
         with open('command.bat', 'w') as f:
             f.write(command)
         subprocess.run('cmd /c command.bat', text=True)
         # handle_unsilence(file_path, speed, silence_level, output_path)
         printer('done')
-
 
     def modify_packages(self):
         import site
@@ -211,7 +211,7 @@ class VideoProcessorApp(tk.Tk):
         site_packages_path = site.getsitepackages()[0]  # Typically the first entry is the desired path
 
         # Define the name of the package and the script you want to modify
-        script_name = 'Lib\\site-packages\\unsilence\\lib\\detect_silence\\DetectSilence.py'
+        script_name = Path.cwd() / 'venv\\Lib\\site-packages\\unsilence\\lib\\detect_silence\\DetectSilence.py'
         # Build the full path to the script file
         script_path = os.path.join(site_packages_path, script_name)
 
@@ -221,10 +221,10 @@ class VideoProcessorApp(tk.Tk):
 
 
 def string_for_unsilence_function():
-    
+
     return
+
 
 if __name__ == "__main__":
     app = VideoProcessorApp()
     app.mainloop()
-
