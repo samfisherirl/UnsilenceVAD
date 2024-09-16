@@ -158,7 +158,7 @@ class VideoProcessorApp(tk.Tk):
         self.minimum_interval_duration_entry.grid(column=1, row=4, padx=10, pady=5)
 
         ttk.Button(self, text="Process Video", command=self.process_video).grid(column=1, row=5, padx=10, pady=10)
-        ttk.Button(self, text="Setup Package", command=self.process_video).grid(column=2, row=5, padx=10, pady=10)
+        ttk.Button(self, text="Setup Package", command=self.modify_packages).grid(column=2, row=5, padx=10, pady=10)
         ensure_env_file_exists()  # Ensure that .env file exists before loading
         self.title("Video Processor")
         self.geometry("600x300")
@@ -198,7 +198,7 @@ class VideoProcessorApp(tk.Tk):
         silence_level = self.silence_level_entry.get()
         minimum_interval_duration = self.minimum_interval_duration_entry.get()
         output_path = f"{file_path.rsplit('.', 1)[0]}_nodeadair.{file_path.split('.')[-1]}"
-        command = f"CALL venv\\Scripts\\activate\ncd venv\\Lib\\site-packages\\unsilence\\command_line\n\nCALL unsilence \"{file_path}\" \"{output_path}\" -ss {speed} -sv 0.5 -sl {silence_level} -mid {minimum_interval_duration} -y\n\n"
+        command = f"CALL venv\\Scripts\\activate\ncd venv\\Lib\\site-packages\\unsilenceVAD_standalone\\command_line\n\nCALL unsilence \"{file_path}\" \"{output_path}\" -ss {speed} -sv 0.5 -sl {silence_level} -mid {minimum_interval_duration} -y\n\n"
         with open('command.bat', 'w') as f:
             f.write(command)
         subprocess.run('cmd /c command.bat', text=True)
@@ -207,7 +207,6 @@ class VideoProcessorApp(tk.Tk):
 
     def modify_packages(self):
         import site
-
         # Locate the site-packages directory
         site_packages_path = site.getsitepackages()[0]  # Typically the first entry is the desired path
 
