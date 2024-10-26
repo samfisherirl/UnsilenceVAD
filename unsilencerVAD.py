@@ -157,9 +157,9 @@ class VideoProcessorApp(tk.Tk):
         self.silence_level_entry.grid(column=1, row=3, padx=10, pady=5)
 
         ttk.Label(self, text="Minimum Interval Duration:").grid(column=0, row=4, sticky="w", padx=10, pady=5)
-        self.minimum_interval_duration_entry = ttk.Entry(self, font=("Arial", 12))
-        self.minimum_interval_duration_entry.insert(0, dotenv_values().get("INTERVAL_DURATION", "0.125"))
-        self.minimum_interval_duration_entry.grid(column=1, row=4, padx=10, pady=5)
+        self.silence_gap_entry = ttk.Entry(self, font=("Arial", 12))
+        self.silence_gap_entry.insert(0, dotenv_values().get("SILENCE_GAP", "0.05"))
+        self.silence_gap_entry.grid(column=1, row=4, padx=10, pady=5)
 
         tttr = str(DISTANCE_THRESHOLD['SHORT']) + "|" + str(DISTANCE_THRESHOLD['STRETCH'])
 
@@ -180,40 +180,38 @@ class VideoProcessorApp(tk.Tk):
         self.file_path_entry.delete(0, tk.END)
         self.file_path_entry.insert(0, file_path)
     
-    def adjust_start_times(self, timestamps):
+    def adjust_start_times(self, timestamps, gap=0.05):
         # Adjust start times with respect to previous end time or by subtracting 0.05 seconds, ensuring it does not exceed the boundaries
         for i in range(len(timestamps)):
             if i == 0:
                 # If adjusting makes it negative, set start to 0
-                timestamps[i]['start'] = max(timestamps[i]['start'] - 0.05, 0)
+                timestamps[i]['start'] = max(timestamps[i]['start'] - gap, 0)
             else:
-                # If adjusting causes overlap, set start to the previous end; otherwise, subtract 0.05
-                if timestamps[i]['start'] - 0.05 < timestamps[i-1]['end']:
+                # If adjusting causes overlap, set start to the previous end; otherwise, subtract gap
+                if timestamps[i]['start'] - gap < timestamps[i-1]['end']:
                     timestamps[i]['start'] = timestamps[i-1]['end']
                 else:
-                    timestamps[i]['start'] = max(timestamps[i]['start'] - 0.05, timestamps[i-1]['end'])
+                    timestamps[i]['start'] = max(timestamps[i]['start'] - gap, timestamps[i-1]['end'])
         return timestamps
 
-    def adjust_end_times(self, timestamps):
+    def adjust_end_times(self, timestamps, gap=0.05):
         # Adjust end times considering not to exceed the start of the next speaking period
         for i in range(len(timestamps)-1):
-            if timestamps[i+1]['start'] - timestamps[i]['end'] < 0.05:
+            if timestamps[i+1]['start'] - timestamps[i]['end'] < gap:
                 timestamps[i]['end'] = timestamps[i+1]['start']
             else:
-                # Here we add 0.05 but ensure it does not exceed the next start time
-                timestamps[i]['end'] = min(timestamps[i]['end'] + 0.05, timestamps[i+1]['start'])
-        # For the last item, add 0.05 to the end without needing to check the next item
+                # Here we add gap but ensure it does not exceed the next start time
+                timestamps[i]['end'] = min(timestamps[i]['end'] + gap, timestamps[i+1]['start'])
+        # For the last item, add gap to the end without needing to check the next item
         if timestamps:  # Ensure list is not empty
-            timestamps[-1]['end'] += 0.05  # Assuming there's no upper limit constraint for the last end
+            timestamps[-1]['end'] += gap  # Assuming there's no upper limit constraint for the last end
         return timestamps
 
-    def adjust_timestamps(self, timestamps):
+    def adjust_timestamps(self, timestamps, gap):
         # First adjust the start times then adjust the end times
         timestamps = self.adjust_start_times(timestamps)
         timestamps = self.adjust_end_times(timestamps)
         return timestamps
-
-
         
     def splitter(self, path):
         length = get_video_length(path)
@@ -238,30 +236,16 @@ class VideoProcessorApp(tk.Tk):
         set_key(".env", "FILE_PATH", self.file_path_entry.get())
         set_key(".env", "THREADS", self.thread_num_entry.get())
         set_key(".env", "SILENCE_LEVEL", self.silence_level_entry.get())
-        set_key(".env", "INTERVAL_DURATION", self.minimum_interval_duration_entry.get())
+        set_key(".env", "SILENCE_GAP", self.silence_gap_entry.get())
+        gap = self.silence_gap_entry.get()
         temp_folder = os.getcwd() + "\\temp"
         inputfile = self.file_path_entry.get()
         times = detectSilences.detect_silence_vad(inputfile)
-        times = self.adjust_timestamps(times)
+        times = self.adjust_timestamps(times, (float(gap)))
         ext = inputfile.split('.')[-1]
-        fffmpHandler.clip_video(inputfile, inputfile.replace(ext, f'_nodeadair.{ext}'), times)
+        fffmpHandler.clip_video(inputfile, inputfile.replace(f'.{ext}', f'_nodeadair.{ext}'), times)
         # Cleanup temporary files
         print('finished')
-
-    def modify_packages(self):
-        import site
-
-        # Locate the site-packages directory
-        site_packages_path = site.getsitepackages()[0]  # Typically the first entry is the desired path
-
-        # Define the name of the package and the script you want to modify
-        script_name = Path.cwd() / 'venv\\Lib\\site-packages\\unsilence\\lib\\detect_silence\\DetectSilence.py'
-        # Build the full path to the script file
-        script_path = os.path.join(site_packages_path, script_name)
-
-        # Modify the content as needed here.
-        ds = Path.cwd() / 'DetectSilence.py'
-        shutil.copy(ds, script_path)
 
 
 def string_for_unsilence_function():
