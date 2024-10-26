@@ -179,7 +179,42 @@ class VideoProcessorApp(tk.Tk):
         file_path = filedialog.askopenfilename(filetypes=[("Video files", "*.*")])
         self.file_path_entry.delete(0, tk.END)
         self.file_path_entry.insert(0, file_path)
+    
+    def adjust_start_times(self, timestamps):
+        # Adjust start times with respect to previous end time or by subtracting 0.05 seconds, ensuring it does not exceed the boundaries
+        for i in range(len(timestamps)):
+            if i == 0:
+                # If adjusting makes it negative, set start to 0
+                timestamps[i]['start'] = max(timestamps[i]['start'] - 0.05, 0)
+            else:
+                # If adjusting causes overlap, set start to the previous end; otherwise, subtract 0.05
+                if timestamps[i]['start'] - 0.05 < timestamps[i-1]['end']:
+                    timestamps[i]['start'] = timestamps[i-1]['end']
+                else:
+                    timestamps[i]['start'] = max(timestamps[i]['start'] - 0.05, timestamps[i-1]['end'])
+        return timestamps
 
+    def adjust_end_times(self, timestamps):
+        # Adjust end times considering not to exceed the start of the next speaking period
+        for i in range(len(timestamps)-1):
+            if timestamps[i+1]['start'] - timestamps[i]['end'] < 0.05:
+                timestamps[i]['end'] = timestamps[i+1]['start']
+            else:
+                # Here we add 0.05 but ensure it does not exceed the next start time
+                timestamps[i]['end'] = min(timestamps[i]['end'] + 0.05, timestamps[i+1]['start'])
+        # For the last item, add 0.05 to the end without needing to check the next item
+        if timestamps:  # Ensure list is not empty
+            timestamps[-1]['end'] += 0.05  # Assuming there's no upper limit constraint for the last end
+        return timestamps
+
+    def adjust_timestamps(self, timestamps):
+        # First adjust the start times then adjust the end times
+        timestamps = self.adjust_start_times(timestamps)
+        timestamps = self.adjust_end_times(timestamps)
+        return timestamps
+
+
+        
     def splitter(self, path):
         length = get_video_length(path)
         if length > SPLIT_DISTANCE:
@@ -207,9 +242,10 @@ class VideoProcessorApp(tk.Tk):
         temp_folder = os.getcwd() + "\\temp"
         inputfile = self.file_path_entry.get()
         times = detectSilences.detect_silence_vad(inputfile)
-        fffmpHandler.clip_video(inputfile, 'temp.mp4', times)
+        times = self.adjust_timestamps(times)
+        ext = inputfile.split('.')[-1]
+        fffmpHandler.clip_video(inputfile, inputfile.replace(ext, f'_nodeadair.{ext}'), times)
         # Cleanup temporary files
-        jumpcutter.clean_up(temp_folder)
         print('finished')
 
     def modify_packages(self):
