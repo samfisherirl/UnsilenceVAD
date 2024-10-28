@@ -1,3 +1,5 @@
+import sys
+import re
 import time
 from unsilence import Unsilence
 from pathlib import Path
@@ -13,7 +15,7 @@ import datetime
 import shutil
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from jumpcutter import jumpcutter
+import jumpcutter
 import detectSilences
 import fffmpHandler
 
@@ -35,6 +37,36 @@ def remove_file_if_exists(file_path):
         print(f"File {file_path} has been removed.")
     else:
         print(f"File {file_path} does not exist.")
+
+
+def rename_file(original_path):
+    # Check if the file exists
+    if not os.path.isfile(original_path):
+        return "File does not exist."
+
+    # Extract directory, filename, and extension
+    directory, filename = os.path.split(original_path)
+    name, extension = os.path.splitext(filename)
+
+    # Limit filename to 15 characters
+    name = name[:15]
+
+    # Get current time
+    current_time = datetime.now().strftime("%H%M")
+
+    # Remove non-alpha-numeric characters (but keep periods for extension)
+    clean_name = re.sub(r'[^a-zA-Z0-9.]+', '', name)
+
+    # Construct new filename
+    new_filename = f"{clean_name}{current_time}{extension}"
+
+    # New path
+    new_path = os.path.join(directory, new_filename)
+
+    # Rename file
+    os.rename(original_path, new_path)
+
+    return new_path
 
 
 def split_video(video_path):
@@ -118,6 +150,61 @@ def printer(string):
     print(f'\n\n##################\n{string}\n##################\n\n')
 
 
+class FFmpegHandler:
+    def __init__(self, input_file):
+        self.input_file = input_file
+        self.segments = []
+
+    def split_into_segments(self):
+        # Split the input file into 5-minute segments
+        output_template = "segment_%03d.mp4"
+        command = [
+            'ffmpeg',
+            '-i', self.input_file,
+            '-c', 'copy',
+            '-map', '0',
+            '-segment_time', '300',  # 300 seconds = 5 minutes
+            '-f', 'segment',
+            output_template
+        ]
+        try:
+            subprocess.run(command, check=True)
+            # Generate the list of segment file paths
+            self.segments = [output_template % i for i in range(len(os.listdir('.')))]
+            return self.segments
+        except subprocess.CalledProcessError as e:
+            print("An error occurred while splitting the video:", str(e))
+            return []
+
+def merge_segments(modified_segments, output_file):
+    # Create a temporary file listing all the modified segment filenames
+    filelist_path = "filelist.txt"
+    with open(filelist_path, 'w') as file:
+        for segment in modified_segments:
+            file.write(f"file '{segment}'\n")
+
+    # Merge the segments using the file list
+    command = [
+        'ffmpeg',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', filelist_path,
+        '-c', 'copy',
+        '-fflags', '+genpts',
+        output_file
+    ]
+    try:
+        subprocess.run(command, check=True)
+        # Cleanup temporary file
+        os.remove(filelist_path)
+        return output_file
+    except subprocess.CalledProcessError as e:
+        print("An error occurred while merging the video segments:", str(e))
+        # Attempt to cleanup if there was an error
+        if os.path.exists(filelist_path):
+            os.remove(filelist_path)
+        return ""
+
 class VideoProcessorApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -156,7 +243,7 @@ class VideoProcessorApp(tk.Tk):
         self.silence_level_entry.insert(0, dotenv_values().get("SILENCE_LEVEL", "-35"))
         self.silence_level_entry.grid(column=1, row=3, padx=10, pady=5)
 
-        ttk.Label(self, text="Minimum Interval Duration:").grid(column=0, row=4, sticky="w", padx=10, pady=5)
+        ttk.Label(self, text="Silence Buffer:").grid(column=0, row=4, sticky="w", padx=10, pady=5)
         self.silence_gap_entry = ttk.Entry(self, font=("Arial", 12))
         self.silence_gap_entry.insert(0, dotenv_values().get("SILENCE_GAP", "0.05"))
         self.silence_gap_entry.grid(column=1, row=4, padx=10, pady=5)
@@ -179,40 +266,45 @@ class VideoProcessorApp(tk.Tk):
         file_path = filedialog.askopenfilename(filetypes=[("Video files", "*.*")])
         self.file_path_entry.delete(0, tk.END)
         self.file_path_entry.insert(0, file_path)
-    
+
+
     def adjust_start_times(self, timestamps, gap=0.05):
         # Adjust start times with respect to previous end time or by subtracting 0.05 seconds, ensuring it does not exceed the boundaries
         for i in range(len(timestamps)):
             if i == 0:
-                # If adjusting makes it negative, set start to 0
-                timestamps[i]['start'] = max(timestamps[i]['start'] - gap, 0)
+                # If adjusting makes it negative, set start to 0 and round to 2 decimals
+                timestamps[i]['start'] = round(max(timestamps[i]['start'] - gap, 0), 2)
             else:
-                # If adjusting causes overlap, set start to the previous end; otherwise, subtract gap
+                # If adjusting causes overlap, set start to the previous end; otherwise, subtract gap, then round to 2 decimals
                 if timestamps[i]['start'] - gap < timestamps[i-1]['end']:
-                    timestamps[i]['start'] = timestamps[i-1]['end']
+                    timestamps[i]['start'] = round(timestamps[i-1]['end'], 2)
                 else:
-                    timestamps[i]['start'] = max(timestamps[i]['start'] - gap, timestamps[i-1]['end'])
+                    timestamps[i]['start'] = round(max(timestamps[i]['start'] - gap, timestamps[i-1]['end']), 2)
         return timestamps
+
 
     def adjust_end_times(self, timestamps, gap=0.05):
-        # Adjust end times considering not to exceed the start of the next speaking period
-        for i in range(len(timestamps)-1):
+        # Adjust end times considering not to exceed the start of the next speaking period and rounding to 2 decimals
+        for i in range(len(timestamps) - 1):
             if timestamps[i+1]['start'] - timestamps[i]['end'] < gap:
-                timestamps[i]['end'] = timestamps[i+1]['start']
+                timestamps[i]['end'] = round(timestamps[i+1]['start'], 2)
             else:
-                # Here we add gap but ensure it does not exceed the next start time
-                timestamps[i]['end'] = min(timestamps[i]['end'] + gap, timestamps[i+1]['start'])
-        # For the last item, add gap to the end without needing to check the next item
+                # Here we add gap but ensure it does not exceed the next start time, then round to 2 decimals
+                timestamps[i]['end'] = round(min(timestamps[i]['end'] + gap, timestamps[i+1]['start']), 2)
+
+        # For the last item, add gap to the end without needing to check the next item, rounding included.
         if timestamps:  # Ensure list is not empty
-            timestamps[-1]['end'] += gap  # Assuming there's no upper limit constraint for the last end
+            timestamps[-1]['end'] = round(timestamps[-1]['end'] + gap, 2)  # Assuming there's no upper limit constraint for the last end
         return timestamps
 
+
     def adjust_timestamps(self, timestamps, gap):
-        # First adjust the start times then adjust the end times
-        timestamps = self.adjust_start_times(timestamps)
-        timestamps = self.adjust_end_times(timestamps)
+        # First adjust the start times then adjust the end times, with rounding included in each step.
+        timestamps = self.adjust_start_times(timestamps, gap)
+        timestamps = self.adjust_end_times(timestamps, gap)
         return timestamps
-        
+
+
     def splitter(self, path):
         length = get_video_length(path)
         if length > SPLIT_DISTANCE:
@@ -240,17 +332,32 @@ class VideoProcessorApp(tk.Tk):
         gap = self.silence_gap_entry.get()
         temp_folder = os.getcwd() + "\\temp"
         inputfile = self.file_path_entry.get()
-        times = detectSilences.detect_silence_vad(inputfile)
-        times = self.adjust_timestamps(times, (float(gap)))
-        ext = inputfile.split('.')[-1]
-        fffmpHandler.clip_video(inputfile, inputfile.replace(f'.{ext}', f'_nodeadair.{ext}'), times)
+        inputfile = rename_file(inputfile)
+        segments = FFmpegHandler(inputfile).split_into_segments()
+        new_segments = []
+        for seg in segments:
+            try:
+                times = detectSilences.detect_silence_vad(seg)
+                times = self.adjust_timestamps(times, (float(gap)))
+                ext = inputfile.split('.')[-1]
+                new_segments.append(fffmpHandler.clip_video(seg, seg.replace(f'.{ext}', f'_nodeadair.{ext}'), times))
+                os.remove(seg)
+            except Exception as e:
+                print(e)
+        merge_segments(new_segments, inputfile.replace('.mp4', '_NODEADAIR.mp4'))
+        for file in segments:
+            try:
+                os.remove(file)
+            except Exception as e:
+                print(e)
+        for file in new_segments:
+            try:
+                os.remove(file)
+            except Exception as e:
+                print(e)
+            
         # Cleanup temporary files
         print('finished')
-
-
-def string_for_unsilence_function():
-
-    return
 
 
 if __name__ == "__main__":

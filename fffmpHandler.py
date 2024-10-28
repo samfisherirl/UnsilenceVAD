@@ -33,7 +33,7 @@ def clip_video(input_file, output_file, time_ranges):
 
     # Execute the FFmpeg command
     subprocess.run(command)
-
+    return output_file
 
 # Example usage
 if __name__ == '__main__':
