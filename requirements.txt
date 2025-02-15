@@ -59,6 +59,7 @@ torch==2.4.1+cu118
 torchaudio==2.4.1+cu118
 torchvision==0.19.1+cu118
 traitlets==5.14.3
+silero-vad
 typing_extensions==4.12.2
 tzdata==2024.1
 virtualenv==20.26.3
